@@ -1,7 +1,4 @@
-# Runtime deps for scripts/.
-# Pinned to specific versions for reproducibility; bumped by Dependabot.
+# Runtime deps for scripts/. Pinned for reproducibility; bumped by Dependabot.
 
-# (no runtime deps for v0.1.0 — the issue helper uses only the standard library)
-# v0.3.x will add:
-# praw==7.8.1
-# requests==2.32.3
+praw==7.8.1
+requests==2.32.3

@@ -1,0 +1,304 @@
+name: LDR Reddit QA (reusable)
+
+# Reusable workflow that polls a subreddit on cron, runs an LDR research
+# call against each newly-classified post, and posts the result as a
+# reply via PRAW. The caller workflow in the consumer's repo handles
+# the `schedule` trigger and invokes this workflow via `uses:`.
+#
+# Architecture:
+#   fetch-candidates  → reddit_fetch.py polls + filters + classifies
+#   research (matrix) → calls LDR's reusable per candidate
+#   post-replies (matrix) → reddit_post.py reposts the comment.md
+#
+# The fetch step writes a JSON matrix to its outputs; both downstream
+# matrix jobs deserialise it.
+
+on:
+  workflow_call:
+    inputs:
+      toolkit-ref:
+        description: 'Git ref of this toolkit repo to check out (must match the ref in `uses:`).'
+        type: string
+        required: true
+      subreddit:
+        description: 'Subreddit to poll (without `r/`).'
+        type: string
+        required: true
+      bot-username:
+        description: 'Bot''s Reddit username, for the already-replied check.'
+        type: string
+        required: true
+      post-limit:
+        description: 'How many newest posts to scan per run.'
+        type: number
+        default: 25
+      min-post-age-hours:
+        description: 'Skip posts younger than this. Primary mitigation against re-posting on mod-removed bot comments.'
+        type: number
+        default: 6
+      max-post-age-hours:
+        description: 'Skip posts older than this.'
+        type: number
+        default: 24
+      max-posts-per-run:
+        description: 'Hard cap on candidates per run. Cost guardrail.'
+        type: number
+        default: 3
+      title-max-chars:
+        description: 'Truncate post titles to this length before embedding.'
+        type: number
+        default: 300
+      selftext-max-chars:
+        description: 'Truncate post bodies to this length before embedding.'
+        type: number
+        default: 2000
+      classifier-model:
+        description: 'Cheap model used to gate posts before LDR. OpenRouter slug.'
+        type: string
+        default: 'anthropic/claude-haiku-4.5'
+      template-ref:
+        description: 'Prompt template name from scripts/prompt_templates/.'
+        type: string
+        default: 'reddit_qa'
+      output-truncate-chars:
+        description: 'Truncate the final markdown to this many chars (Reddit body limit is 10000).'
+        type: number
+        default: 9000
+      include-sources-section:
+        description: 'Include the sources block at the bottom of the comment.'
+        type: boolean
+        default: false
+      max-sources:
+        description: 'Cap sources rendered inline by LDR.'
+        type: number
+        default: 3
+      sleep-between-posts-seconds:
+        description: 'Sleep before each reply (Reddit API courtesy).'
+        type: number
+        default: 30
+      dry-run:
+        description: 'Run research but do NOT post replies (just log them).'
+        type: boolean
+        default: false
+      comment-footer:
+        description: 'Footer line on every comment.'
+        type: string
+        default: '^(I am a bot powered by Local Deep Research via ldr-automations. Replies are auto-generated; treat as suggestions, not authoritative answers.)'
+      model:
+        description: 'LDR research model. Empty = LDR default.'
+        type: string
+        default: ''
+      provider:
+        description: 'LLM provider.'
+        type: string
+        default: 'openrouter'
+      search-tool:
+        description: 'Search tool.'
+        type: string
+        default: 'serper'
+      strategy:
+        description: 'LDR search strategy.'
+        type: string
+        default: 'langgraph-agent'
+      iterations:
+        description: 'Override strategy iteration cap. 0 = strategy default.'
+        type: number
+        default: 0
+      runner:
+        description: 'Runner label.'
+        type: string
+        default: 'ubuntu-latest'
+    secrets:
+      OPENROUTER_API_KEY:
+        required: true
+      SERPER_API_KEY:
+        required: true
+      REDDIT_CLIENT_ID:
+        required: true
+      REDDIT_CLIENT_SECRET:
+        required: true
+      REDDIT_USER_AGENT:
+        required: true
+      REDDIT_USERNAME:
+        # Required unless REDDIT_REFRESH_TOKEN is set.
+        required: false
+      REDDIT_PASSWORD:
+        # Required unless REDDIT_REFRESH_TOKEN is set.
+        required: false
+      REDDIT_REFRESH_TOKEN:
+        # Optional; if set, used instead of username/password.
+        required: false
+    outputs:
+      posts-processed:
+        description: 'Total candidates the bot replied to (excluding dry-run).'
+        value: ${{ jobs.summarise.outputs.processed }}
+
+permissions: {}
+
+jobs:
+  fetch-candidates:
+    name: Poll subreddit + classify
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.fetch.outputs.matrix }}
+      count: ${{ steps.fetch.outputs.count }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout toolkit at requested ref
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: LearningCircuit/ldr-automations
+          ref: ${{ inputs.toolkit-ref }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Fetch + classify candidates
+        id: fetch
+        env:
+          SUBREDDIT: ${{ inputs.subreddit }}
+          BOT_USERNAME: ${{ inputs.bot-username }}
+          POST_LIMIT: ${{ inputs.post-limit }}
+          MIN_POST_AGE_HOURS: ${{ inputs.min-post-age-hours }}
+          MAX_POST_AGE_HOURS: ${{ inputs.max-post-age-hours }}
+          MAX_POSTS_PER_RUN: ${{ inputs.max-posts-per-run }}
+          TITLE_MAX_CHARS: ${{ inputs.title-max-chars }}
+          SELFTEXT_MAX_CHARS: ${{ inputs.selftext-max-chars }}
+          CLASSIFIER_MODEL: ${{ inputs.classifier-model }}
+          TEMPLATE_REF: ${{ inputs.template-ref }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
+          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+          REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
+          REDDIT_REFRESH_TOKEN: ${{ secrets.REDDIT_REFRESH_TOKEN }}
+        run: |
+          python scripts/reddit_fetch.py
+
+  research:
+    name: Run LDR research
+    needs: fetch-candidates
+    if: needs.fetch-candidates.outputs.count != '0' && needs.fetch-candidates.outputs.count != ''
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        post: ${{ fromJson(needs.fetch-candidates.outputs.matrix) }}
+    permissions:
+      contents: read
+      actions: write
+    uses: LearningCircuit/local-deep-research/.github/workflows/ldr-research-reusable.yml@c2a47a83b3098c96d6857a010e49dc627efb7a90 # v1.6.10
+    with:
+      query: ${{ matrix.post.query }}
+      model: ${{ inputs.model }}
+      provider: ${{ inputs.provider }}
+      search-tool: ${{ inputs.search-tool }}
+      strategy: ${{ inputs.strategy }}
+      iterations: ${{ inputs.iterations }}
+      max-sources: ${{ inputs.max-sources }}
+      include-sources-section: ${{ inputs.include-sources-section }}
+      output-truncate-chars: ${{ inputs.output-truncate-chars }}
+      artifact-suffix: ${{ matrix.post.id_sanitized }}
+      comment-header: ''
+      comment-subheader: ''
+      comment-footer: ${{ inputs.comment-footer }}
+      runner: ${{ inputs.runner }}
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+
+  post-replies:
+    name: Post replies to Reddit
+    needs: [fetch-candidates, research]
+    if: always() && needs.fetch-candidates.outputs.count != '0' && needs.fetch-candidates.outputs.count != ''
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        post: ${{ fromJson(needs.fetch-candidates.outputs.matrix) }}
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: read
+    outputs:
+      posted-count: ${{ steps.tally.outputs.count }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout toolkit at requested ref
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: LearningCircuit/ldr-automations
+          ref: ${{ inputs.toolkit-ref }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Download research artifact for this post
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          # Reconstruct the deterministic name LDR's reusable produced.
+          # Pattern: ldr-research-{run_id}-{run_attempt}-{job_id}-{suffix}
+          # where job_id is "research" inside the called LDR reusable.
+          name: ldr-research-${{ github.run_id }}-${{ github.run_attempt }}-research-${{ matrix.post.id_sanitized }}
+
+      - name: Post reply
+        id: post
+        env:
+          POST_ID: ${{ matrix.post.id }}
+          COMMENT_PATH: comment.md
+          DRY_RUN: ${{ inputs.dry-run }}
+          SLEEP_SECONDS: ${{ inputs.sleep-between-posts-seconds }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
+          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+          REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
+          REDDIT_REFRESH_TOKEN: ${{ secrets.REDDIT_REFRESH_TOKEN }}
+        run: |
+          python scripts/reddit_post.py
+
+      - name: Tally per-matrix
+        id: tally
+        run: echo "count=1" >> "$GITHUB_OUTPUT"
+
+  summarise:
+    name: Summarise run
+    needs: [fetch-candidates, post-replies]
+    if: always()
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: read
+    outputs:
+      processed: ${{ steps.sum.outputs.processed }}
+    env:
+      COUNT: ${{ needs.fetch-candidates.outputs.count }}
+    steps:
+      - name: Compute summary
+        id: sum
+        run: |
+          echo "Candidates fetched: ${COUNT:-0}"
+          echo "processed=${COUNT:-0}" >> "$GITHUB_OUTPUT"
