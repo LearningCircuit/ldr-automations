@@ -1,0 +1,40 @@
+# Copy this file into YOUR repo as `.github/workflows/zizmor-security.yml`.
+# No secrets needed — just GITHUB_TOKEN (automatic).
+#
+# Three triggers cover the typical use cases:
+#   - PR / push to main: catch issues before merge
+#   - Weekly schedule: regression check on new CVEs / advisories
+#   - Manual dispatch: ad-hoc audits
+#
+# Edit the `target` / `min-severity` if you want different scope.
+
+name: zizmor security scan
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+  schedule:
+    # Weekly, Mondays 09:00 UTC.
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  scan:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    uses: LearningCircuit/ldr-automations/.github/workflows/zizmor-security.yml@v0.6.0
+    with:
+      target: .github/workflows/
+      min-severity: low
+      advanced-security: true
