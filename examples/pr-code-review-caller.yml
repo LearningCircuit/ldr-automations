@@ -1,0 +1,54 @@
+# Copy this file into YOUR repo as `.github/workflows/pr-research.yml`,
+# then edit the marked sections.
+#
+# Required GitHub Actions secrets in your repo:
+#   - OPENROUTER_API_KEY
+#   - SERPER_API_KEY
+#
+# Required labels: create labels in your repo to trigger the workflow.
+# Defaults expected by the example: `research` (diff mode) and
+# `research-static` (smoke test). You can rename either.
+
+name: PR Research
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  diff:
+    if: github.event.label.name == 'research'
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: write
+    uses: LearningCircuit/ldr-automations/.github/workflows/pr-code-review.yml@v0.2.0
+    with:
+      toolkit-ref: v0.2.0
+      mode: diff
+      project-name: ''            # ← your project name
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+
+  static-smoke:
+    # Optional. Useful for verifying the pipeline works end-to-end on a
+    # PR without actually researching its diff. Apply the `research-static`
+    # label to any PR.
+    if: github.event.label.name == 'research-static'
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: write
+    uses: LearningCircuit/ldr-automations/.github/workflows/pr-code-review.yml@v0.2.0
+    with:
+      toolkit-ref: v0.2.0
+      mode: static
+      static-query: 'What is Local Deep Research and how does it work?'
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}

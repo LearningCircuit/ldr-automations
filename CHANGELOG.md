@@ -4,6 +4,16 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.2.0] — PR code review
+
+### Added
+
+- `pr-code-review.yml` reusable workflow: research a labeled GitHub Pull Request and post the result as a comment. Two modes: `diff` (research the PR's actual changes) and `static` (run a fixed query as a pipeline smoke test).
+- `scripts/build_pr_query.py`: PR diff prompt assembly with both modes.
+- `scripts/prompt_templates/pr_diff_review.txt`, `scripts/prompt_templates/pr_static_smoke.txt`: starter templates.
+- `examples/pr-code-review-caller.yml`: drop-in caller with both diff and static job examples.
+- `docs/quickstart-pr-review.md`: setup walkthrough.
+
 ## [0.1.0] — initial release
 
 ### Added
