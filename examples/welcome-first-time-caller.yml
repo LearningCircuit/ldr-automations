@@ -1,0 +1,38 @@
+# Copy this file into YOUR repo as `.github/workflows/welcome-first-time.yml`,
+# then edit the `welcome-message` to match your project.
+#
+# No secrets needed.
+
+name: Welcome first-time contributors
+
+# pull_request_target is required so fork PRs get a token that can
+# post comments. This reusable never checks out PR content and only
+# reads sender.login + the comment body you supply here.
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions: {}
+
+jobs:
+  welcome:
+    permissions:
+      issues: write
+      pull-requests: write
+    uses: LearningCircuit/ldr-automations/.github/workflows/welcome-first-time.yml@v0.5.0
+    with:
+      welcome-message: |
+        Welcome to **your-project-name**! Thanks for opening your first PR — we appreciate the time you're putting in.
+
+        Here's a starter pack to help your PR move smoothly:
+
+        **Get set up locally**
+        - [Installation guide](https://github.com/YOUR_ORG/YOUR_REPO/blob/main/docs/installation.md)
+        - [Developer guide](https://github.com/YOUR_ORG/YOUR_REPO/blob/main/docs/developing.md)
+
+        **Before you ask for review**
+        - Open PRs against `main` unless a maintainer says otherwise.
+        - Confirm your PR has a single clear purpose.
+        - Describe in your PR body what you tested by hand.
+
+        A maintainer will take a look — if you don't hear back within 7 days, feel free to ping.

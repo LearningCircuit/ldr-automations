@@ -1,0 +1,94 @@
+name: Welcome first-time contributors (reusable)
+
+# Reusable workflow that posts a single welcome comment when a user
+# opens their FIRST pull request in a repository. Filters per-author
+# (skips contributors who already have any PR in the repo) and skips
+# bots. Generalisation of LDR's `welcome-first-time.yml`.
+#
+# Uses pull_request_target so fork PRs receive a writable token. The
+# workflow never checks out PR content, runs no fork-controlled
+# scripts, and the comment body is a caller-supplied static template
+# with no PR-controlled interpolation. (zizmor: this is the safe use
+# case for pull_request_target.)
+
+on:
+  workflow_call:
+    inputs:
+      welcome-message:
+        description: 'Multi-line markdown message body posted as the welcome comment.'
+        type: string
+        required: true
+      runner:
+        description: 'Runner label.'
+        type: string
+        default: 'ubuntu-latest'
+
+permissions: {}
+
+jobs:
+  welcome:
+    name: Welcome first-time contributor
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 5
+    permissions:
+      # createComment on a PR returns 403 with only `issues: write` —
+      # GitHub requires `pull-requests: write` when the issue resource
+      # is actually a PR.
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Welcome
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          WELCOME_MESSAGE: ${{ inputs.welcome-message }}
+        with:
+          script: |
+            // Skip bots. user.type === 'Bot' is the canonical signal;
+            // [bot]-suffix check is belt-and-suspenders.
+            const sender = context.payload.sender;
+            if (sender.type === 'Bot' || sender.login.endsWith('[bot]')) {
+              console.log(`Sender ${sender.login} is a bot. Skipping.`);
+              return;
+            }
+
+            // Look for any other PR by this author. listForRepo with the
+            // `creator` filter is a per-user query; pull_request items
+            // include `pull_request` in the response.
+            const opts = github.rest.issues.listForRepo.endpoint.merge({
+              ...context.issue,
+              creator: sender.login,
+              state: 'all',
+            });
+            const items = await github.paginate(opts);
+
+            for (const item of items) {
+              // Skip the just-opened PR (listForRepo has eventual
+              // consistency; it may not yet be indexed, but if it is,
+              // we don't want to count it as "prior").
+              if (item.number === context.issue.number) continue;
+              if (item.pull_request) {
+                console.log(
+                  `Sender ${sender.login} already has PR #${item.number}. Skipping.`,
+                );
+                return;
+              }
+            }
+
+            const body = process.env.WELCOME_MESSAGE;
+            if (!body || !body.trim()) {
+              console.log('Welcome message is empty. Nothing to post.');
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
+            console.log(`Posted welcome comment on PR #${context.payload.pull_request.number}`);
