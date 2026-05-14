@@ -1,0 +1,52 @@
+name: Self-test (issue helper)
+
+# Exercises the issue-helper meta-reusable against this repo to catch
+# regressions before tagging a release. Manual-trigger only — the LLM
+# call costs money, so we don't want it on every push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue-title:
+        description: 'Fake issue title to research'
+        type: string
+        default: 'Test: bug in retry logic when token expires'
+      issue-body:
+        description: 'Fake issue body'
+        type: string
+        default: |
+          When my OAuth token expires, the bot retries with the old token
+          three times before failing. The retry loop has no backoff.
+
+permissions: {}
+
+jobs:
+  # Synthesise a fake `github.event.issue.*` payload by setting env vars
+  # directly. This works because issue-helper.yml reads `ISSUE_TITLE` and
+  # `ISSUE_BODY` from env, which we set here.
+  exercise:
+    name: Build query with synthetic input
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      ISSUE_TITLE: ${{ inputs.issue-title }}
+      ISSUE_BODY: ${{ inputs.issue-body }}
+      TEMPLATE_REF: issue_reporter_and_maintainer
+      AUDIENCE: both
+      PROJECT_NAME: ldr-automations
+      MAX_BODY_CHARS: '4000'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Build query
+        run: python scripts/build_issue_query.py
+
+      - name: Show first 1000 chars of $GITHUB_OUTPUT
+        run: head -c 1000 "$GITHUB_OUTPUT"

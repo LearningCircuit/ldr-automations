@@ -1,0 +1,55 @@
+# Copy this file into YOUR repo as `.github/workflows/issue-research.yml`,
+# then edit the marked sections.
+#
+# Required GitHub Actions secrets in your repo:
+#   - OPENROUTER_API_KEY  (https://openrouter.ai)
+#   - SERPER_API_KEY      (https://serper.dev)
+#
+# Required label: create a label in your repo (default name: `research`).
+# When a maintainer applies the label to an issue, this workflow runs and
+# posts an LDR-generated research comment, then removes the label so
+# re-applying it re-triggers.
+
+name: Issue Research
+
+on:
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  run:
+    # Replace `research` with whatever label name you want to trigger on.
+    if: github.event.label.name == 'research'
+
+    # IMPORTANT: this exact permissions block is required at the calling
+    # job level. The reusable's checkout needs `contents: read` and its
+    # artifact upload needs `actions: write`. Without these, GitHub
+    # refuses to load the workflow (startup_failure with zero jobs).
+    permissions:
+      contents: read
+      issues: write
+      actions: write
+
+    uses: LearningCircuit/ldr-automations/.github/workflows/issue-helper.yml@v0.1.0
+    with:
+      # toolkit-ref MUST match the ref above (the part after `@`).
+      toolkit-ref: v0.1.0
+
+      # Optional. One of: issue_open_ended | issue_reporter_and_maintainer
+      prompt-template-ref: issue_reporter_and_maintainer
+
+      # Optional. One of: reporter | maintainer | both
+      audience: both
+
+      # Optional. Substituted into the prompt as "the {project-name} project".
+      project-name: ''
+
+      # Optional. Override the default LDR model. Leave empty to use the
+      # default that ships with LDR.
+      # model: anthropic/claude-sonnet-4
+
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
