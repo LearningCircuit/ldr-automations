@@ -30,6 +30,17 @@ jobs:
       - name: Install Python dev deps
         run: pip install -e ".[dev]"
 
+      - name: Install runtime deps
+        # Tests in PR #3+ import requests / praw at module load.
+        # requirements.txt is empty in v0.1.x; pip handles that gracefully.
+        run: |
+          if [ -s requirements.txt ] && grep -q '[^[:space:]]' requirements.txt && \
+             grep -vE '^\s*(#|$)' requirements.txt | grep -q .; then
+            pip install -r requirements.txt
+          else
+            echo "requirements.txt is empty or comment-only; skipping."
+          fi
+
       - name: ruff check
         run: ruff check .
 
