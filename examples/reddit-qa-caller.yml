@@ -1,0 +1,60 @@
+# Copy this file into YOUR repo as `.github/workflows/reddit-qa.yml`,
+# then edit the marked sections.
+#
+# Prerequisites:
+#   1. Register a Reddit bot account (well-aged; not a fresh signup).
+#   2. Create a Reddit "script" app at https://www.reddit.com/prefs/apps
+#      (get client_id and client_secret).
+#   3. Submit the app for Reddit's API access (2024 policy; can take weeks).
+#   4. Add the following GitHub Actions secrets to your repo:
+#        - REDDIT_CLIENT_ID
+#        - REDDIT_CLIENT_SECRET
+#        - REDDIT_USERNAME
+#        - REDDIT_PASSWORD       (or use refresh-token mode — see docs)
+#        - REDDIT_USER_AGENT     e.g. 'python:my-bot:v0.3 (by /u/your-username)'
+#        - OPENROUTER_API_KEY
+#        - SERPER_API_KEY
+#
+# See docs/reddit-oauth-setup.md for the full walkthrough.
+
+name: Reddit QA Bot
+
+on:
+  schedule:
+    # Every 30 minutes. Adjust as desired; remember each run costs ~$0.10
+    # in API calls (Serper + cheap classifier + langgraph-agent research).
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Run research but do not post replies'
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  run:
+    permissions:
+      contents: read
+      actions: write
+    uses: LearningCircuit/ldr-automations/.github/workflows/reddit-qa.yml@v0.3.0
+    with:
+      toolkit-ref: v0.3.0
+      subreddit: LocalLLM           # ← your subreddit (without r/)
+      bot-username: my-ldr-bot      # ← your bot account's Reddit username
+      max-posts-per-run: 3          # cost cap; raise carefully
+      min-post-age-hours: 6
+      max-post-age-hours: 24
+      dry-run: ${{ inputs.dry-run || false }}
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+      REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+      REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+      REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
+      REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+      REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
+      # Use refresh-token mode INSTEAD of username/password by omitting
+      # the two above and uncommenting this one:
+      # REDDIT_REFRESH_TOKEN: ${{ secrets.REDDIT_REFRESH_TOKEN }}
