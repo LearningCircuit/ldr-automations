@@ -8,6 +8,7 @@ Drop-in **reusable GitHub Actions workflows** that wrap [Local Deep Research](ht
 | **PR code review (LDR)** — research labeled PR diffs, post research as a comment | `pr-code-review.yml` | `pull_request: types: [labeled]` | available (v0.2.x) |
 | **Reddit QA** — poll a subreddit, research new posts, reply | `reddit-qa.yml` | `schedule: cron` | follow-up (v0.3.x) |
 | **AI code reviewer** — opinionated LLM PR review with verdict | `ai-code-reviewer.yml` | `pull_request: opened, labeled` | available (v0.4.x) |
+| **Welcome first-time contributors** — auto-comment on first PR | `welcome-first-time.yml` | `pull_request_target: opened` | available (v0.5.x) |
 
 ## How it works
 
@@ -36,6 +37,7 @@ Reddit QA also needs Reddit API credentials. See [docs/reddit-oauth-setup.md](do
 - [PR code review (LDR research)](docs/quickstart-pr-review.md) — research PRs on demand
 - Reddit QA — coming with v0.3.x
 - [AI code reviewer](docs/quickstart-ai-code-reviewer.md) — opinionated LLM review on every PR
+- [Welcome first-time contributors](docs/quickstart-welcome-first-time.md) — friendly auto-comment on first PR
 
 ## Versioning
 

@@ -4,6 +4,19 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.5.0] — Welcome first-time contributors
+
+### Added
+
+- `welcome-first-time.yml` reusable workflow: posts a single welcome comment when a contributor opens their first PR. Filters per-author (skips repeat contributors) and skips bots.
+- `examples/welcome-first-time-caller.yml`: drop-in caller with a generic welcome template.
+- `docs/quickstart-welcome-first-time.md`: setup walkthrough.
+
+### Notes
+
+- No LLM, no API keys. Pure community automation.
+- Uses `pull_request_target` so fork PRs can receive the welcome — see the quickstart for the safety rationale.
+
 ## [0.4.0] — AI code reviewer
 
 ### Added
