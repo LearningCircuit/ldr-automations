@@ -1,0 +1,33 @@
+# Copy this file into YOUR repo as `.github/workflows/gitleaks.yml`.
+# No secrets needed beyond the automatic GITHUB_TOKEN.
+#
+# Two reasonable trigger patterns are shown:
+#   - on PRs (catch secrets before merge)
+#   - daily schedule (catch newly-disclosed regex patterns matching old commits)
+
+name: gitleaks secret scan
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Daily at 03:00 UTC.
+    - cron: '0 3 * * *'
+
+permissions: {}
+
+jobs:
+  scan:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    uses: LearningCircuit/ldr-automations/.github/workflows/gitleaks.yml@v0.7.0
+    with:
+      # Optional. Path to a custom .gitleaks.toml in your repo.
+      # gitleaks-config: .gitleaks.toml
+
+      # Optional. Path to a baseline of accepted findings.
+      # gitleaks-baseline: .gitleaksignore

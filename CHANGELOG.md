@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.7.0] — gitleaks secret scan
+
+### Added
+
+- `gitleaks.yml` reusable workflow: scans the repo for accidentally-committed secrets using the official `gitleaks/gitleaks-action`. Caller-supplied config + baseline path overrides.
+- `examples/gitleaks-caller.yml`: drop-in caller with PR + push-to-main + daily schedule + manual dispatch triggers.
+- `docs/quickstart-gitleaks.md`: setup walkthrough, custom rule guide, baseline (`.gitleaksignore`) instructions, license note about gitleaks-action v2's commercial-use restriction.
+
 ## [0.6.0] — zizmor security scan
 
 ### Added
