@@ -75,12 +75,9 @@ def build_diff_query(
     prompt_suffix: str = "",
 ) -> str:
     template = load_template(template_ref)
-    project_phrase = (
-        f"the {project_name} project" if project_name else "this project"
-    )
-    rendered = (
-        template.replace("{{PROJECT_PHRASE}}", project_phrase)
-        .replace("{{DIFF}}", wrap_in_sentinel(diff, "PR_DIFF"))
+    project_phrase = f"the {project_name} project" if project_name else "this project"
+    rendered = template.replace("{{PROJECT_PHRASE}}", project_phrase).replace(
+        "{{DIFF}}", wrap_in_sentinel(diff, "PR_DIFF")
     )
 
     parts = []
@@ -130,7 +127,10 @@ def main() -> int:
             prompt_suffix=suffix,
         )
         header = "## 🔬 LDR PR research"
-        subheader = "_Auto-generated research context for this PR's diff. Treat as suggestions, not authoritative review._"
+        subheader = (
+            "_Auto-generated research context for this PR's diff. "
+            "Treat as suggestions, not authoritative review._"
+        )
     else:
         print(f"::error::Invalid MODE: {mode!r} (expected 'diff' or 'static')", file=sys.stderr)
         return 1
