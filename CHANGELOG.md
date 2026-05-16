@@ -4,6 +4,19 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.6.0] — zizmor security scan
+
+### Added
+
+- `zizmor-security.yml` reusable workflow: runs the [zizmor](https://github.com/zizmorcore/zizmor) GitHub Actions security linter against the caller's workflows and uploads findings as SARIF to the Security tab.
+- `examples/zizmor-security-caller.yml`: drop-in caller with PR + weekly-schedule + manual-dispatch triggers (path-filtered to workflow changes).
+- `docs/quickstart-zizmor-security.md`: setup walkthrough + interpretation guide.
+
+### Notes
+
+- Thin wrapper around the official `zizmorcore/zizmor-action`. Sets sensible defaults; mirrors the pattern used by LDR's own `zizmor-security.yml`.
+- No LLM, no API keys. Findings show up in your repo's Security → Code scanning tab.
+
 ## [0.5.0] — Welcome first-time contributors
 
 ### Added

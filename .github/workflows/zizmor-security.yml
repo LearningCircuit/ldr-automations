@@ -1,0 +1,88 @@
+name: zizmor security scan (reusable)
+
+# Reusable workflow that runs the zizmor GitHub Actions security
+# linter on the caller's workflow files. Generalisation of LDR's
+# `zizmor-security.yml`.
+#
+# Zizmor finds:
+#   - Template injection (attacker-controlled input in expressions)
+#   - ArtiPACKED (credentials leaked via workflow artifacts)
+#   - Vulnerable actions (third-party actions with known CVEs)
+#   - Impostor commits (hash-pinned actions pointing to forks)
+#   - Hardcoded credentials
+#   - Excessive permissions
+#   - Unpinned actions
+#   - Cache poisoning
+#
+# Results are uploaded as SARIF to your repo's Security tab.
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: 'Path (file or directory) to scan.'
+        type: string
+        default: '.github/workflows/'
+      min-severity:
+        description: 'Lowest severity to report. One of: unknown, informational, low, medium, high.'
+        type: string
+        default: 'low'
+      advanced-security:
+        description: 'Enable advanced audits (some require GitHub Advanced Security on the calling repo).'
+        type: boolean
+        default: true
+      runner:
+        description: 'Runner label.'
+        type: string
+        default: 'ubuntu-latest'
+      timeout-minutes:
+        description: 'Job timeout in minutes.'
+        type: number
+        default: 30
+
+permissions: {}
+
+jobs:
+  zizmor-scan:
+    name: zizmor scan
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@b1d7e1fb5de872772f31590499237e7cce841e8e # v0.5.3
+        with:
+          inputs: ${{ inputs.target }}
+          min-severity: ${{ inputs.min-severity }}
+          advanced-security: ${{ inputs.advanced-security }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Job summary
+        if: always()
+        env:
+          SCAN_TARGET: ${{ inputs.target }}
+          SCAN_SEVERITY: ${{ inputs.min-severity }}
+          REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "## zizmor GitHub Actions Security Scan"
+            echo ""
+            echo "Scanned: \`$SCAN_TARGET\` at min severity \`$SCAN_SEVERITY\`."
+            echo ""
+            echo "See your repo's [Security → Code scanning](https://github.com/$REPO/security/code-scanning) tab for findings."
+            echo ""
+            echo "**About zizmor**: <https://github.com/zizmorcore/zizmor>"
+          } >> "$GITHUB_STEP_SUMMARY"
