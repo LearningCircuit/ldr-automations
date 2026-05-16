@@ -1,0 +1,24 @@
+version: 2
+
+updates:
+  # Keep our own workflow SHAs current (actions/checkout, harden-runner, etc.)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+
+  # Keep pyproject.toml / requirements.txt deps current (mostly dev deps).
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - python
