@@ -76,9 +76,7 @@ def render_audience_blocks(audience: str) -> str:
         return MAINTAINER_BLOCK
     if audience == "both":
         return f"(1) {REPORTER_BLOCK}\n\n(2) {MAINTAINER_BLOCK}"
-    raise ValueError(
-        f"Invalid audience: {audience!r} (expected one of {VALID_AUDIENCES})"
-    )
+    raise ValueError(f"Invalid audience: {audience!r} (expected one of {VALID_AUDIENCES})")
 
 
 def build_query(
@@ -97,9 +95,7 @@ def build_query(
     template = load_template(template_ref)
 
     audience_blocks = render_audience_blocks(audience)
-    project_phrase = (
-        f"the {project_name} project" if project_name else "this project"
-    )
+    project_phrase = f"the {project_name} project" if project_name else "this project"
 
     rendered = (
         template.replace("{{PROJECT_PHRASE}}", project_phrase)
