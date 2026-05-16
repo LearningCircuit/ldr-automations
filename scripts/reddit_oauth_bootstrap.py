@@ -35,7 +35,6 @@ import threading
 import webbrowser
 from urllib.parse import parse_qs, urlparse
 
-
 REDIRECT_PORT = 8080
 REDIRECT_URI = f"http://localhost:{REDIRECT_PORT}"
 
@@ -139,7 +138,10 @@ def main() -> int:
     print("Exchanging authorization code for refresh token...")
     refresh_token = reddit.auth.authorize(code)
     if not refresh_token:
-        print("Reddit didn't return a refresh token (did you request duration=permanent?).", file=sys.stderr)
+        print(
+            "Reddit didn't return a refresh token (did you request duration=permanent?).",
+            file=sys.stderr,
+        )
         return 1
 
     print()

@@ -44,21 +44,19 @@ import re
 import secrets
 import sys
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import requests
 
 # Reuse the sanitiser from PR #1.
 sys.path.insert(0, str(Path(__file__).parent))
-from sanitize_text import sanitize_field, strip_controls, wrap_in_sentinel  # noqa: E402
+from sanitize_text import sanitize_field, wrap_in_sentinel  # noqa: E402
 
 logger = logging.getLogger("reddit_fetch")
 
 TEMPLATE_DIR = Path(__file__).parent / "prompt_templates"
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # Artifact names must match [A-Za-z0-9._-]; Reddit post IDs are base36 so
 # already safe, but we run the same sanitiser as LDR's reusable does on
@@ -130,10 +128,7 @@ def already_replied(submission, bot_username: str) -> bool:
     """
     submission.comments.replace_more(limit=0)
     target = bot_username.lower()
-    for c in submission.comments.list():
-        if c.author and c.author.name.lower() == target:
-            return True
-    return False
+    return any(c.author and c.author.name.lower() == target for c in submission.comments.list())
 
 
 def classify_post(title: str, selftext: str, model: str, api_key: str) -> str:
@@ -157,7 +152,8 @@ Title: {title}
 
 Body: {selftext[:1500]}
 
-Respond with ONLY the category name (one of OK, SKIP_SENTIMENT, SKIP_LOWINFO, SKIP_NSFW). No other text."""
+Respond with ONLY the category name (one of OK, SKIP_SENTIMENT,
+SKIP_LOWINFO, SKIP_NSFW). No other text."""
 
     try:
         resp = requests.post(
@@ -207,8 +203,16 @@ def fetch_candidates(reddit, config: dict) -> list[Candidate]:
     min_age_s = config["min_post_age_hours"] * 3600
     max_age_s = config["max_post_age_hours"] * 3600
 
-    stats = {"total": 0, "too_new": 0, "too_old": 0, "already_replied": 0,
-             "skip_sentiment": 0, "skip_lowinfo": 0, "skip_nsfw": 0, "ok": 0}
+    stats = {
+        "total": 0,
+        "too_new": 0,
+        "too_old": 0,
+        "already_replied": 0,
+        "skip_sentiment": 0,
+        "skip_lowinfo": 0,
+        "skip_nsfw": 0,
+        "ok": 0,
+    }
     out: list[Candidate] = []
 
     for submission in sub.new(limit=config["post_limit"]):
@@ -246,13 +250,15 @@ def fetch_candidates(reddit, config: dict) -> list[Candidate]:
                 title=title_clean,
                 body=selftext_clean,
             )
-            out.append(Candidate(
-                id=submission.id,
-                id_sanitized=sanitize_id(submission.id),
-                title=title_clean,
-                selftext_sanitized=selftext_clean,
-                query=query,
-            ))
+            out.append(
+                Candidate(
+                    id=submission.id,
+                    id_sanitized=sanitize_id(submission.id),
+                    title=title_clean,
+                    selftext_sanitized=selftext_clean,
+                    query=query,
+                )
+            )
         elif label == "SKIP_SENTIMENT":
             stats["skip_sentiment"] += 1
         elif label == "SKIP_LOWINFO":

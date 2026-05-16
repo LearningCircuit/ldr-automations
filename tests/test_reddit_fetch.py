@@ -28,8 +28,15 @@ from reddit_fetch import (  # noqa: E402
 )
 
 
-def _mock_submission(*, id_="abc123", title="t", selftext="b", age_hours=12,
-                      bot_already_commented=False, bot_username="ldr-bot"):
+def _mock_submission(
+    *,
+    id_="abc123",
+    title="t",
+    selftext="b",
+    age_hours=12,
+    bot_already_commented=False,
+    bot_username="ldr-bot",
+):
     sub = MagicMock()
     sub.id = id_
     sub.title = title
@@ -115,9 +122,7 @@ class TestClassifyPost:
     def _mock_openrouter(self, label_text):
         """Return a function suitable as requests.post side_effect."""
         resp = MagicMock()
-        resp.json.return_value = {
-            "choices": [{"message": {"content": label_text}}]
-        }
+        resp.json.return_value = {"choices": [{"message": {"content": label_text}}]}
         resp.raise_for_status = MagicMock()
         return resp
 
@@ -222,10 +227,7 @@ class TestFetchCandidates:
         assert "<<<REDDIT_POST" in c.query
 
     def test_respects_max_posts_per_run(self):
-        subs = [
-            _mock_submission(id_=f"post{i}", title=f"q{i}", selftext="body")
-            for i in range(10)
-        ]
+        subs = [_mock_submission(id_=f"post{i}", title=f"q{i}", selftext="body") for i in range(10)]
         reddit = self._reddit_with(subs)
         with patch("reddit_fetch.classify_post", return_value="OK"):
             result = fetch_candidates(reddit, self._config(max_posts_per_run=2))

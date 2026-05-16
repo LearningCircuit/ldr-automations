@@ -26,9 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from reddit_fetch import build_reddit_client  # noqa: E402
 
 logger = logging.getLogger("reddit_post")
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 
 def main() -> int:
@@ -64,7 +62,9 @@ def main() -> int:
         submission = reddit.submission(id=post_id)
         comment = submission.reply(body=body)
         logger.info("Posted: https://reddit.com%s", comment.permalink)
-        print(f"::notice::Posted comment to r/{submission.subreddit.display_name}: https://reddit.com{comment.permalink}")
+        print(
+            f"::notice::Posted comment to r/{submission.subreddit.display_name}: https://reddit.com{comment.permalink}"
+        )
     except Exception as exc:
         print(f"::error::Failed to post comment to {post_id}: {exc}", file=sys.stderr)
         return 1
