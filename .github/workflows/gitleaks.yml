@@ -1,0 +1,68 @@
+name: gitleaks secret scan (reusable)
+
+# Reusable workflow that runs gitleaks to detect committed secrets
+# (API keys, tokens, passwords, etc.). Generalisation of LDR's
+# `gitleaks.yml`. Wraps the official gitleaks-action with optional
+# caller-supplied config + baseline paths.
+#
+# Findings appear in the workflow log AND (if enabled by the
+# upstream action) as SARIF in your repo's Security tab.
+
+on:
+  workflow_call:
+    inputs:
+      fetch-depth:
+        description: 'Depth of git history to fetch. 0 = full history (recommended for comprehensive scan; slower on large repos).'
+        type: number
+        default: 0
+      gitleaks-config:
+        description: 'Path (in caller repo) to a gitleaks config TOML. Empty = use gitleaks defaults.'
+        type: string
+        default: ''
+      gitleaks-baseline:
+        description: 'Path (in caller repo) to a .gitleaksignore file listing known-accepted findings.'
+        type: string
+        default: ''
+      gitleaks-version:
+        description: 'gitleaks-action version to use (default pinned to a known-good SHA).'
+        type: string
+        default: 'ff98106e4c7b2bc287b24eaf42907196329070c7'  # v2.3.9
+      runner:
+        description: 'Runner label.'
+        type: string
+        default: 'ubuntu-latest'
+
+permissions: {}
+
+jobs:
+  gitleaks:
+    name: gitleaks scan
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: ${{ inputs.fetch-depth }}
+
+      # The gitleaks-action's `uses:` ref can't be expression-driven,
+      # so we always pin to the action's v2.3.9 SHA below. The
+      # `gitleaks-version` input documents what's pinned and is
+      # bumped by editing this workflow file in a versioned release.
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITLEAKS_CONFIG: ${{ inputs.gitleaks-config }}
+          GITLEAKS_BASELINE_PATH: ${{ inputs.gitleaks-baseline }}
