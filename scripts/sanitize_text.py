@@ -10,8 +10,6 @@ injection is fundamentally an LLM-side problem; we just make it harder.
 
 from __future__ import annotations
 
-import string
-
 # Strip C0 and DEL control chars but keep \t \n \r (the typical "useful"
 # whitespace). Anything else from \x00-\x1F is suspect (BiDi overrides,
 # null bytes, etc.) and gets dropped.
@@ -34,7 +32,7 @@ def truncate(text: str, max_chars: int) -> str:
         return ""
     if len(text) <= max_chars:
         return text
-    return text[: max_chars]
+    return text[:max_chars]
 
 
 def wrap_in_sentinel(text: str, name: str) -> str:
@@ -46,9 +44,7 @@ def wrap_in_sentinel(text: str, name: str) -> str:
     so the model can't easily mimic them with a naive payload.
     """
     if not name.replace("_", "").isalnum():
-        raise ValueError(
-            f"Sentinel name must be alphanumeric or underscore, got: {name!r}"
-        )
+        raise ValueError(f"Sentinel name must be alphanumeric or underscore, got: {name!r}")
     return f"<<<{name}\n{text}\n{name}>>>"
 
 
