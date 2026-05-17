@@ -4,6 +4,18 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.7.1] — local pre-commit hooks
+
+### Added
+
+- `.pre-commit-config.yaml`: ruff hooks (`ruff` with `--fix`, `ruff-format`) pinned to v0.15.13.
+- Dependabot entry to bump the pinned ruff revision weekly.
+- `CONTRIBUTING.md`: install instructions for the hooks plus a note on running them across the whole tree.
+
+### Notes
+
+- Internal-only change: catches the lint regressions that bit the v0.1–v0.7 stack (unused imports, long lines, format drift) before they reach CI. No effect on consumers of the meta-reusable workflows.
+
 ## [0.7.0] — gitleaks secret scan
 
 ### Added

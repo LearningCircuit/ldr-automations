@@ -1,0 +1,19 @@
+# Local pre-commit hooks. Catches lint failures before they reach CI —
+# specifically the kinds of issues that bit us during the v0.1–v0.7
+# stack: unused imports, long lines, unsorted imports, format drift.
+#
+# Setup (one-time per clone):
+#
+#   pip install pre-commit
+#   pre-commit install
+#
+# Then `git commit` runs the hooks automatically. To run on the whole
+# tree on demand: `pre-commit run --all-files`.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.13
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format

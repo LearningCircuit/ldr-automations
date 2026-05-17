@@ -22,3 +22,14 @@ updates:
     labels:
       - dependencies
       - python
+
+  # Keep the pinned ruff version in .pre-commit-config.yaml current.
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - pre-commit
