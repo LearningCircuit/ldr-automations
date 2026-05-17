@@ -16,6 +16,9 @@ cd ldr-automations
 # Install dev deps
 pip install -e ".[dev]"
 
+# Install runtime deps (only needed if your changes touch the Reddit-QA scripts)
+pip install -r requirements.txt
+
 # Run tests
 pytest
 
@@ -27,6 +30,23 @@ ruff format --check .
 actionlint .github/workflows/*.yml
 zizmor --offline .github/workflows/*.yml
 ```
+
+### Pre-commit hooks (recommended)
+
+To catch ruff failures before they reach CI, install [pre-commit](https://pre-commit.com/) once per clone:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Now `git commit` automatically runs `ruff check --fix` and `ruff format` on staged files. To run the hooks across the whole tree on demand:
+
+```bash
+pre-commit run --all-files
+```
+
+The config lives in `.pre-commit-config.yaml`. Dependabot keeps the pinned ruff version current.
 
 ## PR conventions
 
