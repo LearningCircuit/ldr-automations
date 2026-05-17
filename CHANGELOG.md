@@ -4,6 +4,20 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.7.2] — version source of truth + consistency check
+
+### Added
+
+- `version.py` at the repo root with `__version__ = "..."`. Single source of truth, mirroring LDR's `__version__.py` pattern.
+- `pyproject.toml` now reads the version dynamically from `version.py` via `setuptools.dynamic`. Bumping the version is one edit, not three.
+- `scripts/check_version_consistency.py`: validates that `version.py`, the resolved pyproject version, and the top non-`[Unreleased]` heading in `CHANGELOG.md` all agree.
+- `.github/workflows/version-check.yml`: runs the consistency check on push-to-main and on PRs that touch `version.py`, `pyproject.toml`, or `CHANGELOG.md`. Also exposes a manual `workflow_dispatch` trigger.
+
+### Notes
+
+- No auto-bump workflow. The toolkit's release cadence is planned-per-PR (not "every push bumps patch"), so manual bumps via the CHANGELOG are the right model.
+- When cutting a release: edit `version.py`, add the `## [X.Y.Z]` heading in `CHANGELOG.md`, and update `toolkit-ref: vX.Y.Z` in any `examples/*-caller.yml` that references it.
+
 ## [0.7.1] — local pre-commit hooks
 
 ### Added
