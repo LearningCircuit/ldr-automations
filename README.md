@@ -5,8 +5,9 @@ Drop-in **reusable GitHub Actions workflows** that wrap [Local Deep Research](ht
 | Use case | Workflow | Trigger in your repo | Status |
 |---|---|---|---|
 | **Issue helper** — research labeled issues, post research as a comment | `issue-helper.yml` | `issues: types: [labeled]` | available (v0.1.x) |
-| **PR code review** — research labeled PR diffs, post research as a comment | `pr-code-review.yml` | `pull_request: types: [labeled]` | follow-up (v0.2.x) |
+| **PR code review (LDR)** — research labeled PR diffs, post research as a comment | `pr-code-review.yml` | `pull_request: types: [labeled]` | available (v0.2.x) |
 | **Reddit QA** — poll a subreddit, research new posts, reply | `reddit-qa.yml` | `schedule: cron` | follow-up (v0.3.x) |
+| **AI code reviewer** — opinionated LLM PR review with verdict | `ai-code-reviewer.yml` | `pull_request: opened, labeled` | available (v0.4.x) |
 
 ## How it works
 
@@ -32,8 +33,9 @@ Reddit QA also needs Reddit API credentials. See [docs/reddit-oauth-setup.md](do
 ## Quickstarts
 
 - [Issue helper](docs/quickstart-issue-helper.md) — research GitHub issues on demand
-- PR code review — coming with v0.2.x
+- [PR code review (LDR research)](docs/quickstart-pr-review.md) — research PRs on demand
 - Reddit QA — coming with v0.3.x
+- [AI code reviewer](docs/quickstart-ai-code-reviewer.md) — opinionated LLM review on every PR
 
 ## Versioning
 
