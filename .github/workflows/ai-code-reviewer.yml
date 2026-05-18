@@ -1,0 +1,210 @@
+name: AI code reviewer (reusable)
+
+# Reusable workflow that runs an LLM-based code review on a PR via the
+# Friendly AI Reviewer script (https://github.com/LearningCircuit/Friendly-AI-Reviewer).
+# This is DIFFERENT from `pr-code-review.yml`:
+#   - `pr-code-review.yml` uses LDR's research strategy to surface
+#     adjacent context (docs, similar reports, etc.). Informational.
+#   - `ai-code-reviewer.yml` (this file) invokes a structured-output
+#     LLM call that returns a review verdict (pass / fail / uncertain),
+#     a review body, and labels to apply. Opinionated.
+#
+# The caller workflow in the consumer's repo handles the
+# `pull_request` event and the label-vs-opened conditional, then
+# invokes this workflow via `uses:`.
+
+on:
+  workflow_call:
+    inputs:
+      ai-model:
+        description: 'OpenRouter model slug. Default is a thinking-class model.'
+        type: string
+        default: 'moonshotai/kimi-k2-thinking'
+      ai-temperature:
+        description: 'LLM temperature for the review call.'
+        type: string
+        default: '0.1'
+      ai-max-tokens:
+        description: 'Max tokens in the review response.'
+        type: string
+        default: '64000'
+      max-diff-size:
+        description: 'Maximum diff size in bytes. Diffs above this are truncated by the reviewer script.'
+        type: string
+        default: '800000'
+      exclude-file-patterns:
+        description: 'Comma-separated globs of files to exclude from the diff sent to the model.'
+        type: string
+        default: '*.lock,*.min.js,*.min.css,package-lock.json,yarn.lock,pnpm-lock.yaml,*.svg,*.png,*.jpg,*.jpeg,*.gif,*.ico'
+      fail-on-requested-changes:
+        description: 'If true, fail the workflow when the AI returns a `fail` decision. Useful as a soft gate.'
+        type: boolean
+        default: false
+      remove-trigger-label:
+        description: 'Trigger label name to remove after run. Set empty to skip removal. Default matches LDR''s `ai_code_review` label.'
+        type: string
+        default: 'ai_code_review'
+      reviewer-script-url:
+        description: 'URL of the AI reviewer shell script. Defaults to the canonical Friendly AI Reviewer raw URL. Pin to a commit SHA if you want supply-chain stability.'
+        type: string
+        default: 'https://raw.githubusercontent.com/LearningCircuit/Friendly-AI-Reviewer/main/ai-reviewer.sh'
+      debug-mode:
+        description: 'Verbose logging including the raw AI response. Do NOT enable in repos with sensitive code paths in the diff.'
+        type: boolean
+        default: false
+      runner:
+        description: 'Runner label.'
+        type: string
+        default: 'ubuntu-latest'
+      timeout-minutes:
+        description: 'Job timeout in minutes.'
+        type: number
+        default: 30
+    secrets:
+      OPENROUTER_API_KEY:
+        required: true
+    outputs:
+      decision:
+        description: "AI's verdict: 'pass', 'fail', or 'uncertain'."
+        value: ${{ jobs.review.outputs.decision }}
+      labels-applied:
+        description: 'Newline-separated list of labels added to the PR.'
+        value: ${{ jobs.review.outputs.labels-applied }}
+
+permissions: {}
+
+jobs:
+  review:
+    name: Run AI code review
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    outputs:
+      decision: ${{ steps.review.outputs.decision }}
+      labels-applied: ${{ steps.review.outputs.labels-applied }}
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      REPO_FULL_NAME: ${{ github.repository }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      AI_MODEL: ${{ inputs.ai-model }}
+      AI_TEMPERATURE: ${{ inputs.ai-temperature }}
+      AI_MAX_TOKENS: ${{ inputs.ai-max-tokens }}
+      MAX_DIFF_SIZE: ${{ inputs.max-diff-size }}
+      EXCLUDE_FILE_PATTERNS: ${{ inputs.exclude-file-patterns }}
+      FAIL_ON_REQUESTED_CHANGES: ${{ inputs.fail-on-requested-changes }}
+      REMOVE_TRIGGER_LABEL: ${{ inputs.remove-trigger-label }}
+      REVIEWER_SCRIPT_URL: ${{ inputs.reviewer-script-url }}
+      DEBUG_MODE: ${{ inputs.debug-mode }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Get PR diff
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          # Use env var to prevent template injection from malicious branch names.
+          git fetch origin "$BASE_REF"
+          git diff "origin/$BASE_REF...HEAD" --no-color > diff.txt
+          echo "Diff size: $(wc -c < diff.txt) bytes"
+
+      - name: Download AI reviewer script
+        run: |
+          curl -fsSL "$REVIEWER_SCRIPT_URL" -o ai-reviewer.sh
+          chmod +x ai-reviewer.sh
+
+      - name: Run AI review
+        id: review
+        run: |
+          echo "Running AI code review..."
+          set +e
+          AI_RESPONSE=$(bash ai-reviewer.sh < diff.txt)
+          EXIT_CODE=$?
+          set -e
+
+          if [ "$DEBUG_MODE" = "true" ]; then
+            echo "=== RAW AI RESPONSE (DEBUG) ==="
+            echo "Exit code: $EXIT_CODE"
+            echo "$AI_RESPONSE"
+            echo "=== END ==="
+          fi
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "::error::AI reviewer script failed with exit code $EXIT_CODE"
+            echo "$AI_RESPONSE"
+            exit 1
+          fi
+          if [ -z "$AI_RESPONSE" ]; then
+            echo "::error::AI response is empty"
+            exit 1
+          fi
+          if ! echo "$AI_RESPONSE" | jq . > /dev/null 2>&1; then
+            echo "::error::AI response is not valid JSON"
+            echo "AI response could not be processed. Check workflow logs (enable debug-mode for details)." \
+              | gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F -
+            exit 1
+          fi
+
+          REVIEW=$(echo "$AI_RESPONSE" | jq -r '.review // "No review provided"')
+          DECISION=$(echo "$AI_RESPONSE" | jq -r '.fail_pass_workflow // "uncertain"' | tr -d '\n\r' | xargs)
+          LABELS=$(echo "$AI_RESPONSE" | jq -r '.labels_added[]? // empty')
+
+          # Post review
+          echo "$REVIEW" | gh pr comment "$PR_NUMBER" --repo "$REPO_FULL_NAME" -F -
+
+          # Add labels
+          APPLIED=""
+          while IFS= read -r label; do
+            [ -z "$label" ] && continue
+            echo "Adding label: $label"
+            if gh label create "$label" --color "0366d6" --description "Auto-created by AI reviewer" 2>/dev/null; then
+              echo "  (created label)"
+            fi
+            if gh issue edit "$PR_NUMBER" --add-label "$label" 2>/dev/null; then
+              APPLIED="${APPLIED}${label}\n"
+            else
+              echo "  (failed to add)"
+            fi
+          done <<< "$LABELS"
+
+          echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
+          {
+            echo "labels-applied<<__APPLIED_EOF__"
+            printf "%b" "$APPLIED"
+            echo "__APPLIED_EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+          # Remove the trigger label (best-effort)
+          if [ -n "$REMOVE_TRIGGER_LABEL" ]; then
+            gh issue edit "$PR_NUMBER" --remove-label "$REMOVE_TRIGGER_LABEL" 2>/dev/null || true
+          fi
+
+          echo "Decision: $DECISION"
+          echo "✅ AI review completed"
+
+      - name: Fail if AI requested changes
+        if: env.FAIL_ON_REQUESTED_CHANGES == 'true' && steps.review.outputs.decision == 'fail'
+        run: |
+          echo "::error::AI requested changes (fail-on-requested-changes is enabled)."
+          echo "The review has been posted as a PR comment. Address the feedback to retry."
+          exit 1
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f diff.txt ai-reviewer.sh

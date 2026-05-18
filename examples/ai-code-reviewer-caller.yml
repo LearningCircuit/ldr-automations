@@ -1,0 +1,51 @@
+# Copy this file into YOUR repo as `.github/workflows/ai-code-review.yml`,
+# then edit the marked sections.
+#
+# Required secret in your repo:
+#   - OPENROUTER_API_KEY
+#
+# How it triggers:
+#   - On every PR open (full auto-review).
+#   - When the `ai_code_review` label is applied (manual re-trigger).
+#
+# Edit the `if:` line below if you want a different trigger pattern
+# (e.g. label-only, or only for specific labels like `needs-review`).
+
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, labeled]
+
+permissions: {}
+
+jobs:
+  review:
+    # Run on every PR open OR when ai_code_review label is applied.
+    # Change to `if: github.event.action == 'labeled' && github.event.label.name == 'ai_code_review'`
+    # for label-only triggering.
+    if: github.event.action == 'opened' || (github.event.action == 'labeled' && github.event.label.name == 'ai_code_review')
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    uses: LearningCircuit/ldr-automations/.github/workflows/ai-code-reviewer.yml@v0.4.0
+    with:
+      # Override the model if you want. Some options:
+      #   moonshotai/kimi-k2-thinking      (default, balanced)
+      #   anthropic/claude-sonnet-4        (strong, more expensive)
+      #   openai/gpt-4o                    (alternative)
+      # See https://openrouter.ai/models for the full catalogue.
+      ai-model: moonshotai/kimi-k2-thinking
+
+      # Optional: fail the workflow when the AI says "fail" (soft gate).
+      # The review is always posted as a PR comment first.
+      fail-on-requested-changes: false
+
+      # Optional: rename the trigger label.
+      # remove-trigger-label: ai_code_review
+
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

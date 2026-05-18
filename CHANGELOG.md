@@ -4,6 +4,19 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.4.0] — AI code reviewer
+
+### Added
+
+- `ai-code-reviewer.yml` reusable workflow: wraps the [Friendly AI Reviewer](https://github.com/LearningCircuit/Friendly-AI-Reviewer) script. Runs an opinionated LLM code review on a PR, posts the review as a comment, applies any AI-suggested labels, optionally fails the workflow on a `fail` verdict (soft gate).
+- `examples/ai-code-reviewer-caller.yml`: drop-in caller — runs on every PR open plus the `ai_code_review` label.
+- `docs/quickstart-ai-code-reviewer.md`: setup walkthrough, with a comparison table against `pr-code-review.yml`.
+
+### Notes
+
+- This is structurally different from `pr-code-review.yml` (which uses LDR research). Many projects will run both — they're complementary.
+- Needs only `OPENROUTER_API_KEY`. No `SERPER_API_KEY` and no LDR install.
+
 ## [0.2.0] — PR code review
 
 ### Added
