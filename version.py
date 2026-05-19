@@ -11,4 +11,4 @@ in each ``examples/*-caller.yml``. The version-check workflow
 catches the first two; example files are manually checked.
 """
 
-__version__ = "0.7.2"
+__version__ = "0.7.3"

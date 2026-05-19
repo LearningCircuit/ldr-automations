@@ -1,0 +1,37 @@
+name: AI Code Review (toolkit dogfood)
+
+# The toolkit's own usage of its `ai-code-reviewer.yml` meta-reusable.
+# Runs on every PR open + when the `ai_code_review` label is applied.
+# The review is posted as a comment on the PR.
+#
+# Prerequisite: `OPENROUTER_API_KEY` must be set as a repository secret
+# under Settings → Secrets and variables → Actions.
+#
+# This workflow uses the meta-reusable from the *same* branch (via
+# `./.github/workflows/ai-code-reviewer.yml`), so once a tagged
+# release exists, external consumers can copy this file as a
+# starting point and just change `uses:` to a pinned tag like
+# `LearningCircuit/ldr-automations/.github/workflows/ai-code-reviewer.yml@v0.4.0`.
+
+on:
+  pull_request:
+    types: [opened, labeled]
+
+permissions: {}
+
+jobs:
+  review:
+    if: github.event.action == 'opened' || (github.event.action == 'labeled' && github.event.label.name == 'ai_code_review')
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    uses: ./.github/workflows/ai-code-reviewer.yml
+    with:
+      ai-model: moonshotai/kimi-k2-thinking
+      fail-on-requested-changes: false
+
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

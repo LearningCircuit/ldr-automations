@@ -4,6 +4,18 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.7.3] — dogfood AI code review
+
+### Added
+
+- `.github/workflows/ai-code-review.yml`: caller workflow that uses the toolkit's own `ai-code-reviewer.yml` meta-reusable on every PR open + `ai_code_review` label. Same-repo `uses:` so future toolkit PRs auto-get AI reviews.
+
+### Notes
+
+- **Setup prerequisite:** add `OPENROUTER_API_KEY` as a repo secret on `LearningCircuit/ldr-automations`. Without it the workflow runs but fails fast with a clear error.
+- The 9 PRs already open (v0.1–v0.7.2) won't get retroactive reviews — they predate this workflow. Future PRs will.
+- External consumers can copy this file as a starting point and change the `uses:` to a pinned tag like `LearningCircuit/ldr-automations/.github/workflows/ai-code-reviewer.yml@v0.4.0`.
+
 ## [0.7.2] — version source of truth + consistency check
 
 ### Added
